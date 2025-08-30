@@ -18,9 +18,9 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 echo 'Installation des dépendances Python...'
-                bat '''
-                    python -m pip install --upgrade pip
-                    pip install -r requirements.txt
+                sh '''
+                    python3 -m pip install --upgrade pip
+                    pip3 install -r requirements.txt
                 '''
             }
         }
@@ -28,7 +28,7 @@ pipeline {
         stage('Run Tests') {
             steps {
                 echo 'Exécution des tests unitaires...'
-                bat 'pytest tests/ -v --tb=short'
+                sh 'python3 -m pytest tests/ -v --tb=short'
             }
             post {
                 always {
@@ -43,7 +43,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo 'Construction de l\'image Docker...'
-                bat """
+                sh """
                     docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
                     docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
                 """
@@ -59,8 +59,8 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
                                                 usernameVariable: 'DOCKER_USER', 
                                                 passwordVariable: 'DOCKER_PASS')]) {
-                    bat """
-                        docker login -u %DOCKER_USER% -p %DOCKER_PASS%
+                    sh """
+                        docker login -u \$DOCKER_USER -p \$DOCKER_PASS
                         docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
                         docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest
                         docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
@@ -76,14 +76,14 @@ pipeline {
             }
             steps {
                 echo 'Déploiement de l\'application...'
-                bat """
+                sh """
                     docker stop transfert-denrees-app || echo "Conteneur non trouvé"
                     docker rm transfert-denrees-app || echo "Conteneur non trouvé"
-                    docker run -d --name transfert-denrees-app -p 8000:8000 ^
-                        -e DATABASE_URL="postgresql://postgres:passer123@host.docker.internal:5432/denrees_db" ^
-                        -e SECRET_KEY="your-secret-key-here" ^
-                        -e ALGORITHM="HS256" ^
-                        -e ACCESS_TOKEN_EXPIRE_MINUTES="30" ^
+                    docker run -d --name transfert-denrees-app -p 8000:8000 \\
+                        -e DATABASE_URL="postgresql://postgres:passer123@host.docker.internal:5432/denrees_db" \\
+                        -e SECRET_KEY="your-secret-key-here" \\
+                        -e ALGORITHM="HS256" \\
+                        -e ACCESS_TOKEN_EXPIRE_MINUTES="30" \\
                         ${DOCKER_IMAGE}:latest
                 """
             }
@@ -93,7 +93,7 @@ pipeline {
     post {
         always {
             echo 'Pipeline terminé'
-            bat 'docker system prune -f'
+            sh 'docker system prune -f'
         }
         success {
             echo 'SUCCÈS: Pipeline exécuté avec succès!'
