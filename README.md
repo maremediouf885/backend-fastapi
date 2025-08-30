@@ -2,14 +2,14 @@
 
 API FastAPI pour la gestion des transferts de denrées alimentaires avec authentification JWT et base PostgreSQL.
 
-## 🚀 Fonctionnalités
+## Fonctionnalités
 
 - **Authentification** : JWT avec gestion des utilisateurs
 - **Offres** : Gestion des offres de denrées
 - **Transactions** : Suivi des transferts
 - **Administration** : Panel d'administration
 
-## 🐳 Docker
+## Docker
 
 ### Lancement rapide
 ```bash
@@ -25,12 +25,12 @@ pytest tests/ -v
 test-pipeline.bat
 ```
 
-## 📚 Documentation
+## Documentation
 
 - **API Docs** : http://localhost:8000/docs
 - **Status** : http://localhost:8000/status
 
-## 🛠️ Technologies
+## Technologies
 
 - FastAPI
 - PostgreSQL
