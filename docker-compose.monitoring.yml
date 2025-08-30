@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # Application FastAPI
+  app:
+    build: .
+    container_name: fastapi_app
+    environment:
+      DATABASE_URL: postgresql://postgres:passer123@db:5432/denrees_db
+      SECRET_KEY: your-secret-key-here
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Base de données PostgreSQL
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    environment:
+      POSTGRES_DB: denrees_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: passer123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Prometheus pour les métriques
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  # Grafana pour les dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+volumes:
+  postgres_data:
+  grafana_data:
