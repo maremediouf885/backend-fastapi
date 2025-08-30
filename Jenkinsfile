@@ -15,20 +15,20 @@ pipeline {
             }
         }
         
-        stage('Install Dependencies') {
-            steps {
-                echo 'Installation des dépendances Python...'
-                sh '''
-                    python3 -m pip install --upgrade pip
-                    pip3 install -r requirements.txt
-                '''
-            }
-        }
-        
         stage('Run Tests') {
+            agent {
+                docker {
+                    image 'python:3.11-slim'
+                    args '-v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
             steps {
-                echo 'Exécution des tests unitaires...'
-                sh 'python3 -m pytest tests/ -v --tb=short'
+                echo 'Installation des dépendances et tests...'
+                sh '''
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+                    python -m pytest tests/ -v --tb=short
+                '''
             }
             post {
                 always {
@@ -41,6 +41,12 @@ pipeline {
         }
         
         stage('Build Docker Image') {
+            agent {
+                docker {
+                    image 'docker:latest'
+                    args '-v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
             steps {
                 echo 'Construction de l\'image Docker...'
                 sh """
@@ -50,42 +56,12 @@ pipeline {
             }
         }
         
-        stage('Push to Registry') {
-            when {
-                branch 'main'
-            }
+        stage('Deploy Info') {
             steps {
-                echo 'Publication sur Docker Hub...'
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
-                                                usernameVariable: 'DOCKER_USER', 
-                                                passwordVariable: 'DOCKER_PASS')]) {
-                    sh """
-                        docker login -u \$DOCKER_USER -p \$DOCKER_PASS
-                        docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
-                        docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest
-                        docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
-                        docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest
-                    """
-                }
-            }
-        }
-        
-        stage('Deploy') {
-            when {
-                branch 'main'
-            }
-            steps {
-                echo 'Déploiement de l\'application...'
-                sh """
-                    docker stop transfert-denrees-app || echo "Conteneur non trouvé"
-                    docker rm transfert-denrees-app || echo "Conteneur non trouvé"
-                    docker run -d --name transfert-denrees-app -p 8000:8000 \\
-                        -e DATABASE_URL="postgresql://postgres:passer123@host.docker.internal:5432/denrees_db" \\
-                        -e SECRET_KEY="your-secret-key-here" \\
-                        -e ALGORITHM="HS256" \\
-                        -e ACCESS_TOKEN_EXPIRE_MINUTES="30" \\
-                        ${DOCKER_IMAGE}:latest
-                """
+                echo 'Pipeline terminé avec succès!'
+                echo "Image créée: ${DOCKER_IMAGE}:${DOCKER_TAG}"
+                echo 'Pour déployer manuellement:'
+                echo "docker run -d --name transfert-denrees-app -p 8000:8000 ${DOCKER_IMAGE}:latest"
             }
         }
     }
@@ -93,7 +69,6 @@ pipeline {
     post {
         always {
             echo 'Pipeline terminé'
-            sh 'docker system prune -f'
         }
         success {
             echo 'SUCCÈS: Pipeline exécuté avec succès!'
